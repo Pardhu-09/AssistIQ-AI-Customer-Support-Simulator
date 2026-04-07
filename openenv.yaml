@@ -1,0 +1,79 @@
+# OpenEnv Configuration
+# AI Customer Support Operations Simulator
+
+name: ai-customer-support-ops-simulator
+version: "1.0.0"
+description: >
+  An OpenEnv-compatible environment simulating enterprise-grade AI customer
+  support operations. Agents must classify tickets, look up customer data,
+  apply policies, and resolve issues using the correct sequence of actions.
+
+# Environment specification
+environment:
+  module: app.env
+  class: CustomerSupportEnv
+  methods:
+    reset: reset
+    step: step
+    state: state
+
+# API configuration
+api:
+  framework: fastapi
+  module: app.main
+  app: app
+  host: "0.0.0.0"
+  port: 7860
+
+# Tasks
+tasks:
+  - id: easy
+    name: Password Reset Request
+    difficulty: Easy
+    max_steps: 6
+  - id: medium
+    name: Billing Dispute Resolution
+    difficulty: Medium
+    max_steps: 10
+  - id: hard
+    name: Critical Service Outage Escalation
+    difficulty: Hard
+    max_steps: 15
+
+# Reward system
+reward:
+  criteria:
+    - name: correctness
+      weight: 0.4
+      description: Reward for taking the correct action in the expected sequence
+    - name: efficiency
+      weight: 0.25
+      description: Bonus for completing tasks in fewer steps
+    - name: response_quality
+      weight: 0.1
+      description: Reward for providing reasoning with actions
+  penalties:
+    - name: hallucination
+      weight: -0.5
+      description: Penalty for using actions not in the valid action set
+    - name: redundancy
+      weight: -0.2
+      description: Penalty for repeating actions unnecessarily
+
+# Agent configuration
+agent:
+  inference_script: inference.py
+  model: gpt-4o-mini
+  log_format:
+    - "[START]"
+    - "[STEP]"
+    - "[END]"
+
+# Deployment
+deployment:
+  docker:
+    dockerfile: Dockerfile
+    port: 7860
+  huggingface:
+    space_url: ""
+    sdk: docker

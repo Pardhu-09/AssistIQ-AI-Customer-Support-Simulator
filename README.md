@@ -261,5 +261,6 @@ This makes the agent's decision-making fully transparent to judges and users.
 ---
 
 *Built for hackathon judges who love both clean code AND beautiful UIs.* 🏆
-#   A s s i s t I Q - A I - C u s t o m e r - S u p p o r t - S i m u l a t o r  
+#   A s s i s t I Q - A I - C u s t o m e r - S u p p o r t - S i m u l a t o r 
+ 
  

@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Support Ops Simulator — OpenEnv Dashboard</title>
+    <meta name="description" content="A production-grade AI Customer Support Operations Simulator built on OpenEnv with real-time visualization, explainable AI, and multi-task evaluation.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        brand: { 50:'#eef2ff', 100:'#e0e7ff', 200:'#c7d2fe', 300:'#a5b4fc', 400:'#818cf8', 500:'#6366f1', 600:'#4f46e5', 700:'#4338ca', 800:'#3730a3', 900:'#312e81' },
+                        surface: { 800:'#1e1b2e', 900:'#13111c', 950:'#0c0a14' },
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { scrollbar-width: thin; scrollbar-color: #4f46e5 #1e1b2e; }
+        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: #1e1b2e; } ::-webkit-scrollbar-thumb { background: #4f46e5; border-radius: 3px; }
+        body { background: #0c0a14; font-family: 'Inter', sans-serif; }
+
+        /* Glass card */
+        .glass { background: rgba(30,27,46,.65); backdrop-filter: blur(18px); border: 1px solid rgba(99,102,241,.12); }
+        .glass-highlight { background: rgba(99,102,241,.08); border: 1px solid rgba(99,102,241,.22); }
+
+        /* Glow effects */
+        .glow-brand { box-shadow: 0 0 30px rgba(99,102,241,.15), 0 0 60px rgba(99,102,241,.05); }
+        .glow-green { box-shadow: 0 0 20px rgba(16,185,129,.2); }
+        .glow-red { box-shadow: 0 0 20px rgba(239,68,68,.2); }
+
+        /* Pulse dot */
+        @keyframes pulse-dot { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.5; transform:scale(1.6); } }
+        .pulse-live { animation: pulse-dot 1.5s ease-in-out infinite; }
+
+        /* Slide in */
+        @keyframes slideUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+        .anim-slide { animation: slideUp .4s ease-out; }
+
+        /* Step card enter */
+        @keyframes fadeScale { from { opacity:0; transform:scale(.96); } to { opacity:1; transform:scale(1); } }
+        .anim-step { animation: fadeScale .35s ease-out; }
+
+        /* Gradient text */
+        .gradient-text { background: linear-gradient(135deg, #818cf8, #6366f1, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        /* Progress bar fill */
+        .progress-fill { transition: width .6s cubic-bezier(.4,0,.2,1); }
+
+        /* Tab active indicator */
+        .tab-active { border-bottom: 2px solid #6366f1; color: #a5b4fc; }
+        .tab-inactive { border-bottom: 2px solid transparent; color: #6b7280; }
+        .tab-inactive:hover { color: #9ca3af; border-color: rgba(99,102,241,.3); }
+
+        /* Badge */
+        .badge-easy { background: rgba(16,185,129,.15); color: #34d399; }
+        .badge-medium { background: rgba(245,158,11,.15); color: #fbbf24; }
+        .badge-hard { background: rgba(239,68,68,.15); color: #f87171; }
+
+        /* Tooltip */
+        [data-tip]:hover::after { content: attr(data-tip); position:absolute; bottom:110%; left:50%; transform:translateX(-50%); background:#312e81; color:#e0e7ff; padding:4px 10px; border-radius:6px; font-size:12px; white-space:nowrap; z-index:50; }
+    </style>
+</head>
+<body class="min-h-screen text-gray-200 antialiased">
+
+<!-- ───────────────── TOP NAV ───────────────── -->
+<nav class="glass sticky top-0 z-50 px-6 py-3 flex items-center justify-between border-b border-brand-900/30">
+    <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-brand-600/30">AI</div>
+        <div>
+            <h1 class="text-base font-bold tracking-tight gradient-text">Support Ops Simulator</h1>
+            <p class="text-[10px] text-gray-500 tracking-widest uppercase">OpenEnv v1.0</p>
+        </div>
+    </div>
+    <div class="flex items-center gap-4">
+        <div id="status-indicator" class="flex items-center gap-2 text-xs font-medium text-gray-400">
+            <span class="w-2 h-2 rounded-full bg-gray-600"></span> Idle
+        </div>
+        <button onclick="toggleDebug()" class="text-xs px-3 py-1.5 rounded-lg glass-highlight hover:bg-brand-600/20 transition font-medium" data-tip="Toggle Debug Mode">🧪 Debug</button>
+    </div>
+</nav>
+
+<!-- ───────────────── MAIN GRID ───────────────── -->
+<main class="max-w-[1480px] mx-auto px-4 py-5 grid grid-cols-12 gap-4" style="min-height:calc(100vh - 60px)">
+
+    <!-- ─── LEFT SIDEBAR: Task Selector & Controls ─── -->
+    <aside class="col-span-12 lg:col-span-3 space-y-4">
+
+        <!-- Task Cards -->
+        <div class="glass rounded-2xl p-4 glow-brand anim-slide">
+            <h2 class="text-sm font-bold text-gray-300 mb-3 flex items-center gap-2">
+                <span class="text-brand-400">📋</span> Task Selector
+            </h2>
+            <div id="task-cards" class="space-y-2">
+                <!-- Filled by JS -->
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="glass rounded-2xl p-4 anim-slide" style="animation-delay:.1s">
+            <h2 class="text-sm font-bold text-gray-300 mb-3 flex items-center gap-2">
+                <span class="text-brand-400">⚡</span> Controls
+            </h2>
+            <button id="btn-reset" onclick="resetEnv()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 text-white font-semibold text-sm hover:from-brand-500 hover:to-brand-400 transition-all shadow-lg shadow-brand-600/20 active:scale-[.97] mb-2">
+                🔄 Reset Task
+            </button>
+            <button id="btn-autorun" onclick="runAll()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 text-white font-semibold text-sm hover:from-emerald-500 hover:to-emerald-400 transition-all shadow-lg shadow-emerald-600/20 active:scale-[.97] mb-2">
+                ▶️ Auto-Run Task
+            </button>
+            <button id="btn-runall" onclick="runAllTasks()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-500 text-white font-semibold text-sm hover:from-purple-500 hover:to-pink-400 transition-all shadow-lg shadow-purple-600/20 active:scale-[.97]">
+                🚀 Multi-Task Runner
+            </button>
+        </div>
+
+        <!-- Reward Breakdown -->
+        <div class="glass rounded-2xl p-4 anim-slide" style="animation-delay:.2s">
+            <h2 class="text-sm font-bold text-gray-300 mb-3 flex items-center gap-2">
+                <span class="text-brand-400">📊</span> Reward Breakdown
+            </h2>
+            <div id="reward-breakdown" class="space-y-2 text-xs">
+                <div class="flex justify-between"><span class="text-gray-400">Correctness</span><span id="rw-correct" class="font-mono text-emerald-400">0.000</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">Efficiency</span><span id="rw-efficiency" class="font-mono text-blue-400">0.000</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">Response Quality</span><span id="rw-quality" class="font-mono text-purple-400">0.000</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">Hallucination ✗</span><span id="rw-hallucination" class="font-mono text-red-400">0.000</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">Redundancy ✗</span><span id="rw-redundancy" class="font-mono text-yellow-400">0.000</span></div>
+                <div class="h-px bg-brand-800/40 my-1"></div>
+                <div class="flex justify-between font-semibold text-sm"><span class="text-gray-200">Total</span><span id="rw-total" class="font-mono text-brand-300">0.000</span></div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ─── CENTER: Live Simulation ─── -->
+    <section class="col-span-12 lg:col-span-6 space-y-4">
+
+        <!-- Tabs -->
+        <div class="flex gap-1 border-b border-brand-900/30">
+            <button onclick="switchTab('simulation')" id="tab-simulation" class="tab-active px-4 py-2 text-sm font-semibold transition">🎯 Live Simulation</button>
+            <button onclick="switchTab('analytics')" id="tab-analytics" class="tab-inactive px-4 py-2 text-sm font-semibold transition">📈 Analytics</button>
+            <button onclick="switchTab('logs')" id="tab-logs" class="tab-inactive px-4 py-2 text-sm font-semibold transition">📝 Logs</button>
+        </div>
+
+        <!-- Tab: Simulation -->
+        <div id="panel-simulation" class="space-y-4">
+            <!-- Ticket Card -->
+            <div class="glass rounded-2xl p-5 glow-brand anim-slide">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-bold text-gray-300 flex items-center gap-2">
+                        <span class="text-brand-400">🎫</span> Customer Ticket
+                    </h3>
+                    <span id="ticket-badge" class="text-[10px] px-2 py-0.5 rounded-full font-bold tracking-wide"></span>
+                </div>
+                <div id="ticket-content" class="text-sm text-gray-400 leading-relaxed">
+                    <p class="italic text-gray-500">Select a task and click Reset to load a ticket...</p>
+                </div>
+            </div>
+
+            <!-- Progress -->
+            <div class="glass rounded-2xl p-4 anim-slide" style="animation-delay:.05s">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-semibold text-gray-400">Task Progress</span>
+                    <span id="progress-label" class="text-xs font-mono text-brand-300">0 / 0</span>
+                </div>
+                <div class="w-full h-2.5 rounded-full bg-surface-900 overflow-hidden">
+                    <div id="progress-bar" class="h-full rounded-full bg-gradient-to-r from-brand-600 to-purple-500 progress-fill" style="width:0%"></div>
+                </div>
+            </div>
+
+            <!-- Step Timeline -->
+            <div class="glass rounded-2xl p-5 anim-slide" style="animation-delay:.1s; max-height: 420px; overflow-y:auto;">
+                <h3 class="text-sm font-bold text-gray-300 flex items-center gap-2 mb-3">
+                    <span class="text-brand-400">⏱️</span> Step Timeline
+                    <span id="live-dot" class="w-2 h-2 rounded-full bg-emerald-400 pulse-live hidden"></span>
+                </h3>
+                <div id="step-timeline" class="space-y-3">
+                    <p class="text-xs text-gray-500 italic">No steps yet. Start a simulation to see the agent in action.</p>
+                </div>
+            </div>
+
+            <!-- Conversation History -->
+            <div class="glass rounded-2xl p-5 anim-slide" style="animation-delay:.15s; max-height: 300px; overflow-y:auto;">
+                <h3 class="text-sm font-bold text-gray-300 flex items-center gap-2 mb-3">
+                    <span class="text-brand-400">💬</span> Conversation History
+                </h3>
+                <div id="conversation-history" class="space-y-2">
+                    <p class="text-xs text-gray-500 italic">Conversation will appear here...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Analytics -->
+        <div id="panel-analytics" class="space-y-4 hidden">
+            <div class="glass rounded-2xl p-5">
+                <h3 class="text-sm font-bold text-gray-300 mb-4 flex items-center gap-2">
+                    <span class="text-brand-400">📈</span> Reward Over Time
+                </h3>
+                <div style="height:280px;">
+                    <canvas id="reward-chart"></canvas>
+                </div>
+            </div>
+            <div class="glass rounded-2xl p-5">
+                <h3 class="text-sm font-bold text-gray-300 mb-4 flex items-center gap-2">
+                    <span class="text-brand-400">🏆</span> Multi-Task Comparison
+                </h3>
+                <div id="task-comparison" class="space-y-3">
+                    <p class="text-xs text-gray-500 italic">Run multiple tasks to see comparison...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Logs -->
+        <div id="panel-logs" class="hidden">
+            <div class="glass rounded-2xl p-5" style="max-height:600px; overflow-y:auto;">
+                <h3 class="text-sm font-bold text-gray-300 mb-3 flex items-center gap-2">
+                    <span class="text-brand-400">📝</span> Structured Logs
+                </h3>
+                <div id="logs-container" class="font-mono text-xs space-y-1">
+                    <p class="text-gray-500 italic">Logs will appear here...</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── RIGHT SIDEBAR: XAI & Debug ─── -->
+    <aside class="col-span-12 lg:col-span-3 space-y-4">
+
+        <!-- Explainable AI Panel -->
+        <div class="glass rounded-2xl p-4 anim-slide">
+            <h2 class="text-sm font-bold text-gray-300 mb-3 flex items-center gap-2">
+                <span class="text-brand-400">🧠</span> Explainable AI
+            </h2>
+            <div id="xai-panel" class="space-y-3 text-xs">
+                <div class="glass-highlight rounded-xl p-3">
+                    <p class="text-gray-500 italic">Run the agent to see its reasoning...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Observation -->
+        <div class="glass rounded-2xl p-4 anim-slide" style="animation-delay:.1s">
+            <h2 class="text-sm font-bold text-gray-300 mb-3 flex items-center gap-2">
+                <span class="text-brand-400">👁️</span> Current Observation
+            </h2>
+            <div id="observation-panel" class="text-xs text-gray-400 space-y-2">
+                <p class="italic text-gray-500">Waiting for environment data...</p>
+            </div>
+        </div>
+
+        <!-- Debug Panel -->
+        <div id="debug-panel" class="glass rounded-2xl p-4 anim-slide hidden" style="animation-delay:.2s">
+            <h2 class="text-sm font-bold text-gray-300 mb-3 flex items-center gap-2">
+                <span class="text-brand-400">🧪</span> Debug Info
+            </h2>
+            <pre id="debug-content" class="text-[10px] font-mono text-gray-400 bg-surface-950 rounded-xl p-3 overflow-auto max-h-60 whitespace-pre-wrap">No debug data yet.</pre>
+        </div>
+
+        <!-- Available Actions -->
+        <div class="glass rounded-2xl p-4 anim-slide" style="animation-delay:.15s">
+            <h2 class="text-sm font-bold text-gray-300 mb-3 flex items-center gap-2">
+                <span class="text-brand-400">🎮</span> Manual Action
+            </h2>
+            <select id="action-select" class="w-full bg-surface-900 border border-brand-800/30 rounded-lg px-3 py-2 text-xs text-gray-300 mb-2 focus:outline-none focus:border-brand-500">
+                <option value="">Select an action…</option>
+            </select>
+            <input id="reasoning-input" type="text" placeholder="Reasoning (optional)..." class="w-full bg-surface-900 border border-brand-800/30 rounded-lg px-3 py-2 text-xs text-gray-300 mb-2 focus:outline-none focus:border-brand-500">
+            <button onclick="manualStep()" class="w-full py-2 rounded-lg bg-brand-600/80 text-white text-xs font-semibold hover:bg-brand-500 transition active:scale-[.97]">
+                Execute Step →
+            </button>
+        </div>
+    </aside>
+</main>
+
+<!-- ───────────────── FOOTER ───────────────── -->
+<footer class="text-center py-4 text-[10px] text-gray-600 tracking-wider uppercase border-t border-brand-900/20">
+    AI Customer Support Operations Simulator — OpenEnv Hackathon Project
+</footer>
+
+<!-- ───────────────── JAVASCRIPT ───────────────── -->
+<script>
+const API = window.location.origin;
+
+// ── State ────────────────────────────────────────
+let selectedTask = 'easy';
+let isRunning = false;
+let rewardHistory = [];
+let stepLabels = [];
+let taskScores = {};
+let chartInstance = null;
+
+// ── Init ─────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadTasks();
+    initChart();
+    populateActions();
+});
+
+// ── Load Tasks ───────────────────────────────────
+async function loadTasks() {
+    try {
+        const res = await fetch(`${API}/tasks`);
+        const data = await res.json();
+        const container = document.getElementById('task-cards');
+        container.innerHTML = '';
+        for (const [id, task] of Object.entries(data)) {
+            const diffClass = id === 'easy' ? 'badge-easy' : id === 'medium' ? 'badge-medium' : 'badge-hard';
+            const selected = id === selectedTask;
+            container.innerHTML += `
+                <button onclick="selectTask('${id}')" id="task-btn-${id}"
+                    class="w-full text-left p-3 rounded-xl transition-all ${selected ? 'glass-highlight glow-brand' : 'glass hover:bg-brand-900/20'}"
+                >
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-semibold text-sm text-gray-200">${task.name}</span>
+                        <span class="text-[10px] px-2 py-0.5 rounded-full font-bold ${diffClass}">${task.difficulty}</span>
+                    </div>
+                    <p class="text-[11px] text-gray-500 leading-snug">${task.description}</p>
+                    <div class="text-[10px] text-gray-600 mt-1">Max steps: ${task.max_steps}</div>
+                </button>`;
+        }
+    } catch (e) {
+        console.error('Failed to load tasks:', e);
+    }
+}
+
+function selectTask(id) {
+    selectedTask = id;
+    loadTasks();
+}
+
+// ── Populate Actions ─────────────────────────────
+async function populateActions() {
+    try {
+        const res = await fetch(`${API}/actions`);
+        const data = await res.json();
+        const sel = document.getElementById('action-select');
+        sel.innerHTML = '<option value="">Select an action…</option>';
+        for (const [action, desc] of Object.entries(data.actions)) {
+            sel.innerHTML += `<option value="${action}">${action} — ${desc}</option>`;
+        }
+    } catch (e) { console.error(e); }
+}
+
+// ── Reset ────────────────────────────────────────
+async function resetEnv() {
+    try {
+        setStatus('resetting', '🔄 Resetting...');
+        const res = await fetch(`${API}/reset`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ task_id: selectedTask })
+        });
+        const data = await res.json();
+        rewardHistory = [];
+        stepLabels = [];
+        updateChart();
+        renderTicket(data.task);
+        renderObservation(data.observation);
+        clearStepTimeline();
+        clearConversation();
+        clearLogs();
+        updateProgress(0, data.task.max_steps);
+        updateRewardBreakdown({ correctness:0, efficiency:0, response_quality:0, hallucination_penalty:0, redundancy_penalty:0 }, 0);
+        updateXAI(null);
+        setStatus('ready', '✅ Ready');
+        addLog('[START]', `Task: ${data.task.name} (${data.task.difficulty})`, 'brand');
+    } catch (e) {
+        setStatus('error', '❌ Error');
+        console.error(e);
+    }
+}
+
+// ── Manual Step ──────────────────────────────────
+async function manualStep() {
+    const action = document.getElementById('action-select').value;
+    const reasoning = document.getElementById('reasoning-input').value;
+    if (!action) return;
+    await executeStep(action, reasoning || 'User-initiated manual step.');
+}
+
+// ── Execute Step ─────────────────────────────────
+async function executeStep(action, reasoning, attempt = 0) {
+    try {
+        setStatus('stepping', '⚡ Stepping...');
+        const res = await fetch(`${API}/step`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ action, reasoning })
+        });
+        if (!res.ok) {
+            let err;
+            try {
+                err = await res.json();
+            } catch {
+                err = { detail: await res.text() };
+            }
+            const detail = err?.detail || `Request failed (${res.status})`;
+            addLog('[ERROR]', `/step → ${detail}`, 'red');
+
+            // Common UX pitfall: user clicks Manual Action before resetting.
+            // Auto-reset and retry once.
+            if (attempt === 0 && typeof detail === 'string' && detail.toLowerCase().includes('call /reset')) {
+                setStatus('resetting', '🔄 Reset required — resetting...');
+                await resetEnv();
+                return await executeStep(action, reasoning, attempt + 1);
+            }
+
+            setStatus('error', '❌ Error');
+            return null;
+        }
+
+        const data = await res.json();
+
+        // Update reward tracking
+        rewardHistory.push(data.observation.cumulative_reward);
+        stepLabels.push(`S${data.observation.step}`);
+        updateChart();
+
+        // Render step in timeline
+        addStepCard(data.observation.step, action, reasoning, data.reward, data.observation.cumulative_reward, data.observation.env_response);
+        renderObservation(data.observation);
+        updateXAI({ action, reasoning, reward: data.reward, info: data.observation.info, suggested: data.observation.suggested_next_actions });
+
+        // Fetch full state for breakdown
+        const stateRes = await fetch(`${API}/state`);
+        const stateData = await stateRes.json();
+        updateRewardBreakdown(stateData.reward_breakdown, stateData.cumulative_reward);
+        updateProgress(stateData.step_count, stateData.debug_info.expected_sequence?.length || stateData.step_count);
+        updateDebug(stateData.debug_info);
+        renderConversation(stateData.conversation_history);
+
+        addLog('[STEP]', `${action} → reward: ${data.reward >= 0 ? '+' : ''}${data.reward.toFixed(3)}`, data.reward >= 0 ? 'emerald' : 'red');
+
+        if (data.done) {
+            setStatus('done', '🏁 Episode Done');
+            addLog('[END]', `Final score: ${data.observation.cumulative_reward.toFixed(3)}`, 'purple');
+            taskScores[selectedTask] = data.observation.cumulative_reward;
+            renderComparison();
+            document.getElementById('live-dot').classList.add('hidden');
+        } else {
+            setStatus('ready', '✅ Ready');
+        }
+        return data;
+    } catch (e) {
+        setStatus('error', '❌ Error');
+        console.error(e);
+        addLog('[ERROR]', `Manual action failed: ${e?.message || e}`, 'red');
+        return null;
+    }
+}
+
+// ── Auto-Run Task ────────────────────────────────
+async function runAll() {
+    if (isRunning) return;
+    isRunning = true;
+    document.getElementById('live-dot').classList.remove('hidden');
+    await resetEnv();
+
+    // Get suggested actions from state
+    const actionMap = {
+        easy: ['classify_ticket', 'lookup_customer', 'verify_identity', 'send_password_reset', 'confirm_resolution'],
+        medium: ['classify_ticket', 'lookup_customer', 'query_billing_records', 'verify_duplicate_charge', 'initiate_refund', 'send_confirmation', 'confirm_resolution'],
+        hard: ['classify_ticket', 'lookup_customer', 'check_system_status', 'acknowledge_outage', 'escalate_to_l2', 'escalate_to_l3', 'query_logs', 'identify_root_cause', 'apply_hotfix', 'verify_resolution', 'send_incident_report', 'confirm_resolution']
+    };
+    const actions = actionMap[selectedTask] || actionMap.easy;
+    const reasonings = [
+        'Starting by categorizing the incoming support ticket to determine priority and routing.',
+        'Looking up the customer profile to understand their account tier and service history.',
+        'Verifying customer identity before making any account changes for security compliance.',
+        'Executing the primary resolution action based on the ticket category and policy.',
+        'Checking internal systems for relevant data related to this issue.',
+        'Cross-referencing data sources to verify the reported problem.',
+        'Initiating the corrective action according to the company policy for this issue type.',
+        'Sending confirmation to the customer with resolution details.',
+        'Escalating to a higher tier for specialized handling as required by SLA.',
+        'Engaging engineering resources due to technical complexity of the issue.',
+        'Analyzing system logs to pinpoint the exact root cause of the failure.',
+        'Applying the identified fix to restore service.',
+        'Confirming the resolution with the affected customer.',
+        'Sending formal post-incident documentation.',
+        'Marking ticket as resolved and closing the support interaction.'
+    ];
+
+    for (let i = 0; i < actions.length; i++) {
+        await new Promise(r => setTimeout(r, 700));
+        const result = await executeStep(actions[i], reasonings[i] || `Step ${i+1}: Executing ${actions[i]} based on environment observation.`);
+        if (!result || result.done) break;
+    }
+    isRunning = false;
+}
+
+// ── Multi-Task Runner ────────────────────────────
+async function runAllTasks() {
+    if (isRunning) return;
+    for (const tid of ['easy', 'medium', 'hard']) {
+        selectedTask = tid;
+        await loadTasks();
+        await runAll();
+        await new Promise(r => setTimeout(r, 500));
+    }
+}
+
+// ── Renderers ────────────────────────────────────
+function renderTicket(task) {
+    const t = task.ticket;
+    const badgeEl = document.getElementById('ticket-badge');
+    badgeEl.textContent = task.difficulty;
+    badgeEl.className = `text-[10px] px-2 py-0.5 rounded-full font-bold badge-${task.difficulty.toLowerCase()}`;
+    document.getElementById('ticket-content').innerHTML = `
+        <div class="flex items-center gap-3 mb-3">
+            <span class="text-lg">🎫</span>
+            <div>
+                <p class="font-semibold text-gray-200 text-sm">${t.subject}</p>
+                <p class="text-[11px] text-gray-500">${t.id} • ${t.category} • Priority: <span class="font-semibold">${t.priority}</span></p>
+            </div>
+        </div>
+        <div class="glass-highlight rounded-xl p-3 mb-3">
+            <p class="text-gray-300 leading-relaxed text-xs">"${t.body}"</p>
+        </div>
+        <div class="flex gap-4 text-[11px] text-gray-500">
+            <span>👤 ${t.customer_name}</span>
+            <span>🏷️ ${t.customer_tier}</span>
+            <span>📅 ${t.account_age_days}d</span>
+        </div>`;
+}
+
+function addStepCard(step, action, reasoning, reward, cumulative, envResponse) {
+    const container = document.getElementById('step-timeline');
+    if (step === 1) container.innerHTML = '';
+    const rewardColor = reward >= 0 ? 'text-emerald-400' : 'text-red-400';
+    const rewardIcon = reward >= 0 ? '▲' : '▼';
+    container.innerHTML += `
+        <div class="glass-highlight rounded-xl p-3 anim-step">
+            <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2">
+                    <span class="w-6 h-6 rounded-lg bg-brand-600/30 text-brand-300 flex items-center justify-center text-[10px] font-bold">${step}</span>
+                    <span class="font-semibold text-xs text-gray-200">${action}</span>
+                </div>
+                <span class="${rewardColor} text-xs font-mono font-semibold">${rewardIcon} ${reward >= 0 ? '+' : ''}${reward.toFixed(3)}</span>
+            </div>
+            <p class="text-[11px] text-gray-400 mb-1.5 leading-snug">💭 ${reasoning || 'No reasoning provided.'}</p>
+            <p class="text-[11px] text-emerald-400/80 leading-snug">${envResponse}</p>
+            <div class="text-[10px] text-gray-600 mt-1">Cumulative: ${cumulative.toFixed(3)}</div>
+        </div>`;
+    container.scrollTop = container.scrollHeight;
+}
+
+function renderConversation(history) {
+    const c = document.getElementById('conversation-history');
+    if (!history || !history.length) return;
+    c.innerHTML = history.map(m => {
+        const role = m.role;
+        const icon = role === 'agent' ? '🤖' : role === 'system' ? '⚙️' : '🌐';
+        const color = role === 'agent' ? 'text-brand-300' : role === 'system' ? 'text-gray-400' : 'text-emerald-400';
+        return `<div class="flex gap-2 text-xs"><span>${icon}</span><span class="${color}">${m.content}</span></div>`;
+    }).join('');
+    c.scrollTop = c.scrollHeight;
+}
+
+function renderObservation(obs) {
+    if (!obs) return;
+    const panel = document.getElementById('observation-panel');
+    panel.innerHTML = `
+        <div class="glass-highlight rounded-lg p-2 space-y-1">
+            <div class="flex justify-between"><span class="text-gray-500">Task:</span><span class="text-gray-300">${obs.task_id}</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">Step:</span><span class="text-gray-300">${obs.step}</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">Reward:</span><span class="font-mono ${obs.cumulative_reward >= 0 ? 'text-emerald-400' : 'text-red-400'}">${obs.cumulative_reward.toFixed(3)}</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">Done:</span><span class="text-gray-300">${obs.done ? '✅ Yes' : '⏳ No'}</span></div>
+        </div>
+        <div class="mt-2">
+            <p class="text-gray-500 mb-1">Suggested next:</p>
+            <div class="flex flex-wrap gap-1">
+                ${(obs.suggested_next_actions || []).map(a => `<span class="text-[10px] px-2 py-0.5 rounded-full bg-brand-900/30 text-brand-300 border border-brand-800/20">${a}</span>`).join('')}
+            </div>
+        </div>`;
+}
+
+function updateXAI(data) {
+    const panel = document.getElementById('xai-panel');
+    if (!data) {
+        panel.innerHTML = '<div class="glass-highlight rounded-xl p-3"><p class="text-gray-500 italic">Run the agent to see its reasoning...</p></div>';
+        return;
+    }
+    panel.innerHTML = `
+        <div class="glass-highlight rounded-xl p-3 space-y-2">
+            <div>
+                <p class="text-gray-500 text-[10px] uppercase tracking-wider mb-0.5">Action Taken</p>
+                <p class="text-brand-300 font-semibold">${data.action}</p>
+            </div>
+            <div>
+                <p class="text-gray-500 text-[10px] uppercase tracking-wider mb-0.5">Why This Action?</p>
+                <p class="text-gray-300 leading-snug">${data.reasoning}</p>
+            </div>
+            <div>
+                <p class="text-gray-500 text-[10px] uppercase tracking-wider mb-0.5">Outcome</p>
+                <p class="text-gray-400">${data.info}</p>
+            </div>
+            <div>
+                <p class="text-gray-500 text-[10px] uppercase tracking-wider mb-0.5">Step Reward</p>
+                <p class="font-mono text-lg ${data.reward >= 0 ? 'text-emerald-400' : 'text-red-400'}">${data.reward >= 0 ? '+' : ''}${data.reward.toFixed(3)}</p>
+            </div>
+        </div>`;
+}
+
+function updateProgress(current, total) {
+    const pct = total > 0 ? (current / total) * 100 : 0;
+    document.getElementById('progress-bar').style.width = `${Math.min(pct, 100)}%`;
+    document.getElementById('progress-label').textContent = `${current} / ${total}`;
+}
+
+function updateRewardBreakdown(breakdown, total) {
+    document.getElementById('rw-correct').textContent = (breakdown.correctness || 0).toFixed(3);
+    document.getElementById('rw-efficiency').textContent = (breakdown.efficiency || 0).toFixed(3);
+    document.getElementById('rw-quality').textContent = (breakdown.response_quality || 0).toFixed(3);
+    document.getElementById('rw-hallucination').textContent = (breakdown.hallucination_penalty || 0).toFixed(3);
+    document.getElementById('rw-redundancy').textContent = (breakdown.redundancy_penalty || 0).toFixed(3);
+    document.getElementById('rw-total').textContent = (total || 0).toFixed(3);
+}
+
+function updateDebug(info) {
+    document.getElementById('debug-content').textContent = JSON.stringify(info, null, 2);
+}
+
+function clearStepTimeline() {
+    document.getElementById('step-timeline').innerHTML = '<p class="text-xs text-gray-500 italic">No steps yet. Start a simulation to see the agent in action.</p>';
+}
+function clearConversation() {
+    document.getElementById('conversation-history').innerHTML = '<p class="text-xs text-gray-500 italic">Conversation will appear here...</p>';
+}
+
+// ── Logs ─────────────────────────────────────────
+function addLog(type, message, color) {
+    const c = document.getElementById('logs-container');
+    if (c.querySelector('.italic')) c.innerHTML = '';
+    const colorMap = { brand:'text-brand-400', emerald:'text-emerald-400', red:'text-red-400', purple:'text-purple-400', yellow:'text-yellow-400' };
+    const now = new Date().toISOString().slice(11,23);
+    c.innerHTML += `<div class="flex gap-2 anim-step"><span class="text-gray-600">${now}</span><span class="font-bold ${colorMap[color] || 'text-gray-400'}">${type}</span><span class="text-gray-400">${message}</span></div>`;
+    c.scrollTop = c.scrollHeight;
+}
+function clearLogs() {
+    document.getElementById('logs-container').innerHTML = '<p class="text-gray-500 italic">Logs will appear here...</p>';
+}
+
+// ── Chart ────────────────────────────────────────
+function initChart() {
+    const ctx = document.getElementById('reward-chart').getContext('2d');
+    chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Cumulative Reward',
+                data: [],
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99,102,241,0.08)',
+                fill: true,
+                tension: 0.35,
+                borderWidth: 2.5,
+                pointBackgroundColor: '#818cf8',
+                pointBorderColor: '#6366f1',
+                pointRadius: 4,
+                pointHoverRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { backgroundColor:'#1e1b2e', titleColor:'#a5b4fc', bodyColor:'#e0e7ff', borderColor:'#4f46e5', borderWidth:1 }
+            },
+            scales: {
+                x: { grid:{ color:'rgba(99,102,241,.06)' }, ticks:{ color:'#6b7280', font:{size:10} } },
+                y: { grid:{ color:'rgba(99,102,241,.06)' }, ticks:{ color:'#6b7280', font:{size:10} } }
+            }
+        }
+    });
+}
+function updateChart() {
+    if (!chartInstance) return;
+    chartInstance.data.labels = stepLabels;
+    chartInstance.data.datasets[0].data = rewardHistory;
+    chartInstance.update();
+}
+
+// ── Task Comparison ──────────────────────────────
+function renderComparison() {
+    const c = document.getElementById('task-comparison');
+    const entries = Object.entries(taskScores);
+    if (!entries.length) return;
+    c.innerHTML = entries.map(([id, score]) => {
+        const diffClass = id === 'easy' ? 'badge-easy' : id === 'medium' ? 'badge-medium' : 'badge-hard';
+        const pct = Math.min(Math.max(score / 5 * 100, 0), 100);
+        return `
+            <div class="glass-highlight rounded-xl p-3 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span class="text-[10px] px-2 py-0.5 rounded-full font-bold ${diffClass}">${id}</span>
+                    <div class="w-32 h-2 rounded-full bg-surface-900 overflow-hidden">
+                        <div class="h-full rounded-full bg-gradient-to-r from-brand-600 to-purple-500 progress-fill" style="width:${pct}%"></div>
+                    </div>
+                </div>
+                <span class="font-mono text-sm text-brand-300 font-semibold">${score.toFixed(3)}</span>
+            </div>`;
+    }).join('');
+}
+
+// ── Tabs ─────────────────────────────────────────
+function switchTab(tab) {
+    const tabs = ['simulation', 'analytics', 'logs'];
+    tabs.forEach(t => {
+        document.getElementById(`tab-${t}`).className = t === tab ? 'tab-active px-4 py-2 text-sm font-semibold transition' : 'tab-inactive px-4 py-2 text-sm font-semibold transition';
+        document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
+    });
+}
+
+// ── Status ───────────────────────────────────────
+function setStatus(type, text) {
+    const el = document.getElementById('status-indicator');
+    const colors = { idle:'bg-gray-600', ready:'bg-emerald-400', stepping:'bg-yellow-400', resetting:'bg-blue-400', done:'bg-purple-400', error:'bg-red-400' };
+    el.innerHTML = `<span class="w-2 h-2 rounded-full ${colors[type] || colors.idle} ${type === 'stepping' ? 'pulse-live' : ''}"></span> ${text}`;
+}
+
+// ── Debug Toggle ─────────────────────────────────
+function toggleDebug() {
+    document.getElementById('debug-panel').classList.toggle('hidden');
+}
+</script>
+</body>
+</html>

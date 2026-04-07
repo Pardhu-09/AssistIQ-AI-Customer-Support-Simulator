@@ -1,0 +1,45 @@
+﻿
+============================================================
+  CustomerSupportEnv ΓÇö Smoke Test Suite
+============================================================
+
+[TASK-001] Easy: classify + close
+  [PASS]  reset() returns Observation
+  [PASS]  step=0 after reset
+  [PASS]  done=False after reset
+  [PASS]  available_actions contains classify_ticket
+  [PASS]  state() returns dict
+  [PASS]  state() classification is None before classify
+  [PASS]  classify_ticket accepted
+  [PASS]  classification set in obs
+  [PASS]  positive reward for correct classify  (r=0.500)
+  [PASS]  retrieve_knowledge accepted
+  [PASS]  episode done after close_ticket
+  [PASS]  is_closed=True in obs
+  [PASS]  EvaluationSummary returned
+  [PASS]  final_score in [0,1]  (1.000)
+  [PASS]  grade string non-empty  (S (Excellent))
+    Score: 1.000  Grade: S (Excellent)
+
+[TASK-002] Medium: classify ΓåÆ retrieve ΓåÆ draft
+  [PASS]  draft_response accepted
+  [PASS]  response_drafted=True in obs
+  [PASS]  response quality reward > 0  (0.350)
+
+[TASK-003] Hard: classify ΓåÆ retrieve├ù2 ΓåÆ draft ΓåÆ escalate
+  [PASS]  escalate accepted for TASK-003
+  [PASS]  is_escalated=True
+  [FAIL]  escalation reward > 0  (-0.150)
+  [PASS]  TASK-003 final_score > 0.5  (0.900)
+    Score: 0.900  Grade: S (Excellent)
+
+[Validation] Invalid action handling
+  [PASS]  Invalid action returns negative reward  (r=-0.050)
+  [PASS]  Episode continues after invalid action
+
+============================================================
+  Result: 16/17 checks passed
+  Failed checks:
+    [FAIL] escalation reward > 0
+============================================================
+
