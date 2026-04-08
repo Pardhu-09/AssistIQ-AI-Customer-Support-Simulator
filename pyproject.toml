@@ -1,0 +1,20 @@
+[project]
+name = "assistiq-openenv"
+version = "0.1.0"
+description = "AssistIQ AI Customer Support Simulator"
+authors = [
+  { name="Pardhu" }
+]
+
+dependencies = [
+  "fastapi",
+  "uvicorn",
+  "pydantic",
+  "openenv-core>=0.2.0"
+]
+
+[project.scripts]
+server = "server.app:main"
+
+[tool.openenv]
+entry_point = "app.main:app"

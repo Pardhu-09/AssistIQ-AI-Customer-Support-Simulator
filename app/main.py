@@ -6,7 +6,7 @@ import os
 import json
 import datetime
 from typing import List, Dict, Any
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Body, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -58,34 +58,29 @@ def _add_log(entry: Dict[str, Any]):
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
-@app.post("/reset", response_model=ResetResponse, summary="Reset the environment for a task")
-def reset(request: ResetRequest):
+@app.post("/reset")
+def reset(request: dict = Body(default={})):
     """Reset the environment to the beginning of a specified task."""
-    if request.task_id not in TASKS:
-        raise HTTPException(status_code=400, detail=f"Invalid task_id. Choose from: {list(TASKS.keys())}")
-
-    obs = env.reset(request.task_id)
-    task_meta = TASKS[request.task_id]
+    task_id = request.get("task_id", list(TASKS.keys())[0])
+    obs = env.reset(task_id)
+    task_meta = TASKS[task_id]
 
     _add_log({
         "type": "[START]",
-        "task_id": request.task_id,
+        "task_id": task_id,
         "task_name": task_meta["name"],
         "difficulty": task_meta["difficulty"],
         "message": f"Episode started for task: {task_meta['name']}",
     })
 
-    return ResetResponse(
-        observation=obs,
-        task={
+    return {
+        "observation": obs,
+        "task": {
             "id": task_meta["id"],
             "name": task_meta["name"],
-            "difficulty": task_meta["difficulty"],
-            "description": task_meta["description"],
-            "max_steps": task_meta["max_steps"],
-            "ticket": task_meta["ticket"],
-        },
-    )
+            "difficulty": task_meta["difficulty"]
+        }
+    }
 
 
 @app.post("/step", response_model=StepResponse, summary="Execute one agent step")
