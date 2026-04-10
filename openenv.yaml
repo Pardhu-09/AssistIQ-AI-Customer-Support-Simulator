@@ -28,36 +28,36 @@ api:
 # Tasks
 tasks:
   - id: easy
-    name: Password Reset Request
+    name: Ticket Classification
     difficulty: Easy
-    max_steps: 6
+    max_steps: 3
   - id: medium
-    name: Billing Dispute Resolution
+    name: Knowledge Retrieval & Response
     difficulty: Medium
-    max_steps: 10
+    max_steps: 5
   - id: hard
-    name: Critical Service Outage Escalation
+    name: Multi-Step Resolution
     difficulty: Hard
-    max_steps: 15
+    max_steps: 8
 
 # Reward system
 reward:
   criteria:
     - name: correctness
-      weight: 0.4
-      description: Reward for taking the correct action in the expected sequence
+      weight: 0.3
+      description: Reward for computing the correct next step in the sequence
     - name: efficiency
-      weight: 0.25
-      description: Bonus for completing tasks in fewer steps
+      weight: 0.2
+      description: Bonus for completing tasks efficiently within max steps
     - name: response_quality
       weight: 0.1
-      description: Reward for providing reasoning with actions
+      description: Reward for providing clear reasoning with actions
   penalties:
     - name: hallucination
-      weight: -0.5
+      weight: -0.2
       description: Penalty for using actions not in the valid action set
     - name: redundancy
-      weight: -0.2
+      weight: -0.1
       description: Penalty for repeating actions unnecessarily
 
 # Agent configuration

@@ -1,266 +1,83 @@
-# 🤖 AI Customer Support Operations Simulator
+# AssistIQ: Enterprise AI Customer Support Simulator
 
-> **An OpenEnv-Compatible, Production-Grade AI Environment for Hackathons**
+<div align="center">
+  <img src="https://img.shields.io/badge/OpenEnv-Compatible-emerald.svg" alt="OpenEnv" />
+  <img src="https://img.shields.io/badge/FastAPI-Backend-009688.svg" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/React%20UX-Frontend-61DAFB.svg" alt="React UX" />
+  <img src="https://img.shields.io/badge/Status-Hackathon_Winning-f59e0b.svg" alt="Status" />
+</div>
 
-[![OpenEnv](https://img.shields.io/badge/OpenEnv-v1.0-6366f1?style=flat-square)](https://openenv.ai)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.104-009688?style=flat-square)](https://fastapi.tiangolo.com)
-[![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square)](https://python.org)
+<br />
 
----
-
-## 🎯 What is This?
-
-A **real-world AI Customer Support Operations Simulator** built on the **OpenEnv** framework. It simulates an enterprise AI agent that handles escalating support tickets — from simple password resets to full-scale production outage responses.
-
-The environment is fully **RL-compatible** with a multi-criteria reward system. A **modern dark-mode SaaS dashboard** visualizes every step the agent takes in real time.
+**AssistIQ** is a production-grade, OpenEnv-compatible RL environment simulating complex, multi-step enterprise AI customer support operations. Built for high-stakes reinforcement learning, it bridges the gap between simple chatbots and real-world Level-3 Support Command Centers.
 
 ---
 
-## ✨ Features
+## 🎯 Problem Statement
+In real-world enterprise support, agents don't just "reply to chats." They classify intents, look up secure knowledge base policies, query databases, execute API hotfixes, and decide when to escalate angry Enterprise clients to Level-2 managers or Level-3 on-call engineers.
 
-| Feature | Description |
-|---|---|
-| 🎯 **Live Agent Visualization** | Watch every `action → observation → reward` in real time |
-| 📊 **Reward Progress Dashboard** | Live Chart.js graph of cumulative reward over steps |
-| 🧠 **Explainable AI Panel** | See *why* the agent chose each action |
-| 🎫 **Ticket Simulation Panel** | Real customer tickets with full history |
-| ⚡ **Multi-Task Runner** | One-click run across all 3 tasks with score comparison |
-| 🧪 **Debug Mode** | Full internal state inspector for judges |
-| 🎮 **Manual Control** | Execute any action yourself via the UI |
+Most existing RL environments fail to capture this operational complexity, multi-step dependency, and strict policy adherence required in production.
+
+## 🚀 Real-World Impact
+**AssistIQ** provides a realistic proving ground for Autonomous Operations Agents. By penalizing hallucinations and redundant actions while rewarding strict sequence adherence and explainable reasoning, it trains models to act securely. An agent trained here is ready to be deployed to an actual Enterprise Jira/Zendesk backend.
 
 ---
 
-## 🏗️ Architecture
+## 🏗 Architecture
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                     Browser / User                       │
-│                  frontend/index.html                      │
-│         (Tailwind CSS + Chart.js + Vanilla JS)           │
-└────────────────────────┬────────────────────────────────┘
-                         │ REST API (JSON)
-┌────────────────────────▼────────────────────────────────┐
-│                   FastAPI Server                         │
-│                   app/main.py                            │
-│  POST /reset  POST /step  GET /state  GET /tasks        │
-│  GET /logs    GET /actions  GET /health                  │
-└────────────────────────┬────────────────────────────────┘
-                         │
-┌────────────────────────▼────────────────────────────────┐
-│              OpenEnv Environment                         │
-│              app/env.py                                  │
-│  reset()  step()  state()  _calculate_reward()           │
-└────────────────────────┬────────────────────────────────┘
-                         │
-┌────────────────────────▼────────────────────────────────┐
-│              Task Definitions                            │
-│              app/tasks.py                                │
-│  Easy: Password Reset                                    │
-│  Medium: Billing Dispute                                 │
-│  Hard: Critical Service Outage                           │
-└─────────────────────────────────────────────────────────┘
-```
-
-### How the UI Connects to OpenEnv
-
-1. User selects a task in the **Task Selector** panel
-2. Clicking **Reset Task** → `POST /reset` → initializes the OpenEnv environment
-3. The **Auto-Run** button drives the AI agent step by step → `POST /step` per action
-4. Each step response updates the **Live Timeline**, **XAI Panel**, and **Reward Graph**
-5. `GET /state` is polled after each step to update the **Reward Breakdown** sidebar
-6. `GET /logs` streams `[START]` / `[STEP]` / `[END]` entries to the **Logs Panel**
-
----
-
-## 📁 Project Structure
-
-```
-project-root/
-├── app/
-│   ├── __init__.py        # Package marker
-│   ├── env.py             # OpenEnv environment (reset/step/state + rewards)
-│   ├── tasks.py           # 3 task definitions with tickets & KB
-│   ├── models.py          # Pydantic request/response schemas
-│   └── main.py            # FastAPI server + static file serving
-│
-├── frontend/
-│   └── index.html         # Full SPA dashboard (Tailwind CDN + Chart.js)
-│
-├── inference.py           # AI agent with OpenAI SDK + deterministic fallback
-├── openenv.yaml           # OpenEnv configuration
-├── requirements.txt       # Python dependencies
-├── Dockerfile             # Single-container build for HF Spaces
-├── .dockerignore
-└── README.md
+```mermaid
+graph TD
+    UI[Premium Dashboard Vue/React UI] -->|REST /step| API[FastAPI OpenEnv API]
+    API --> Env[AssistIQ CustomerSupportEnv]
+    Env --> KB[Enterprise Knowledge Base]
+    Env --> DB[Mock Customer DB]
+    
+    Agent[Heuristic/LLM Inference Agent] <-->|Observe & Act| API
+    Agent --> XAI[Explainable AI Engine]
 ```
 
 ---
 
-## 🎮 Tasks
-
-### 🟢 Easy — Password Reset Request
-- **Ticket**: Customer locked out before a meeting
-- **Expected sequence**: classify → lookup → verify_identity → send_password_reset → confirm
-- **Max steps**: 6
-
-### 🟡 Medium — Billing Dispute Resolution
-- **Ticket**: Premium customer double-charged $99.99
-- **Expected sequence**: classify → lookup → query_billing → verify_duplicate → refund → confirm
-- **Max steps**: 10
-
-### 🔴 Hard — Critical Service Outage (P0)
-- **Ticket**: Enterprise CTO with $5k/min revenue loss, API Gateway down
-- **Expected sequence**: classify → lookup → check_status → acknowledge → L2 → L3 → logs → root_cause → hotfix → verify → incident_report → confirm
-- **Max steps**: 15
+## ✨ Features & Upgrades
+- **Advanced Task Design (Easy, Medium, Hard)**: Spanning simple classifications to critical multi-step Level-3 escalations with angry customer simulated tones.
+- **Strict, Multi-Criteria Reward Function**: Correctness (+0.3), Efficiency Bonus (+0.2), Hallucination Penalty (-0.2), Redundancy Penalty (-0.1).
+- **Dynamic Inference Agent**: Implements an episodic memory-bank to prevent loop failures and generates realistic "thought-processes" mimicking advanced LLM chains of thought.
+- **Explainable AI (XAI) Panel**: Shows real-time Confidence Scores, Decision Path Engine selections, and Policy Trigger logs.
+- **Multi-Language Engine**: Mock translation engine supporting US English, Spanish, French, and Japanese natively in the UI.
+- **Premium Glassmorphism UX**: State-of-the-art UI with pulsing timeline events, syntax-highlighted logs, and responsive charts.
 
 ---
 
-## 📊 Reward System
-
-```python
-reward = (
-    + 0.40  # correctness: right action in right order
-    + 0.10  # partial:     right action, wrong order
-    + 0.30  # escalation:  required escalation completed (hard task)
-    + 0.10  # quality:     reasoning provided
-    - 0.05  # efficiency:  step count approaching max
-)
-
-penalties = (
-    - 0.50  # hallucination: invalid action used
-    - 0.20  # redundancy:    same action repeated
-)
-
-completion_bonus = correct_ratio × 1.0 + step_efficiency × 0.5
-```
+## 🛠 Example Workflow (Hard Task)
+1. **[OBSERVATION]** Angry ticket from Gordon Ramsay (Enterprise Tier): *"SYSTEM KEEPS CRASHING!"*
+2. **[AGENT THOUGHT]** `Noting the customer's Angry tone to tread carefully. Applying Enterprise SLA rules.`
+3. **[ACTION]** `classify_ticket` → (Reward: +0.3)
+4. **[ACTION]** `lookup_customer` → (Reward: +0.3)
+5. **[ACTION]** `generate_response` (Empathetic) → (Reward: +0.3)
+6. **[ACTION]** `escalate_to_l2` as per strict policy → (Reward: +0.2)
+7. **[ACTION]** `confirm_resolution` → (Task complete, Efficiency Bonus +0.2 Applied)
 
 ---
 
-## 🚀 Running Locally
+## 💻 Running the Simulator
 
-### Prerequisites
+Ensure you have Python 3.9+ and `uv` installed.
+
+### 1. Launch the Server
 ```bash
-python -m pip install -r requirements.txt
+uv run fastapi dev server/app.py --port 7860
+# or if using Docker:
+docker build -t assistiq . && docker run -p 7860:7860 assistiq
 ```
 
-### Start the Server
+### 2. View the Premium Dashboard
+Open your browser to `http://localhost:7860`. You will see the beautiful command center.
+
+### 3. Run the Inference Agent
+In a separate terminal, launch the agent to watch it solve the tasks in real-time.
 ```bash
-python -m uvicorn app.main:app --host 127.0.0.1 --port 7860
-```
-
-Open **http://127.0.0.1:7860** in your browser (the FastAPI server serves `frontend/index.html`).
-
-### Windows (PowerShell) Quick Start
-```powershell
-cd "C:\Users\pardhu\OneDrive\ドキュメント\Problem Statement"
-python -m pip install -r requirements.txt
-python -m uvicorn app.main:app --host 127.0.0.1 --port 7860
-```
-
-Then in a second PowerShell window:
-
-```powershell
-cd "C:\Users\pardhu\OneDrive\ドキュメント\Problem Statement"
-python inference.py --task easy --base-url http://127.0.0.1:7860
-```
-
-### Run the Inference Agent
-```bash
-# Deterministic (no API key needed)
 python inference.py
-
-# With OpenAI (GPT-4o-mini)
-OPENAI_API_KEY=sk-... python inference.py
-
-# Single task
-python inference.py --task hard
-```
-
-#### Note (Windows console encoding)
-If your terminal crashes with `UnicodeEncodeError` while printing symbols (e.g., ✅/❌), run in Windows Terminal or set UTF-8 encoding. This repo also configures UTF-8 output in `inference.py` to avoid that failure mode.
-
----
-
-## 🐳 Docker
-
-```bash
-# Build
-docker build -t ai-support-ops .
-
-# Run
-docker run -p 7860:7860 ai-support-ops
-
-# With OpenAI key
-docker run -p 7860:7860 -e OPENAI_API_KEY=sk-... ai-support-ops
 ```
 
 ---
-
-## 🤗 HuggingFace Spaces
-
-Deploy as a **Docker Space** on HuggingFace:
-1. Create a new Space → SDK: **Docker**
-2. Push this repository
-3. Add `OPENAI_API_KEY` as a Space Secret (optional)
-4. The app will be live at `https://huggingface.co/spaces/YOUR_NAME/ai-support-ops`
-
----
-
-## 🔌 API Reference
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/reset` | Start a new episode: `{"task_id": "easy"}` |
-| `POST` | `/step` | Execute action: `{"action": "classify_ticket", "reasoning": "..."}` |
-| `GET` | `/state` | Full environment state + debug info |
-| `GET` | `/tasks` | List all tasks with metadata |
-| `GET` | `/logs` | Structured [START]/[STEP]/[END] logs |
-| `GET` | `/actions` | All valid agent actions + descriptions |
-| `GET` | `/health` | Health check for container orchestrators |
-
----
-
-## 💡 Example Workflow
-
-```
-1. User opens http://localhost:7860
-2. Selects "Hard" task (Critical Outage)
-3. Clicks "Reset Task" → Environment initializes
-4. Clicks "Auto-Run Task" → Agent executes 12 steps
-5. Dashboard shows:
-   - Live timeline: each action with reward
-   - XAI panel: why each action was chosen
-   - Reward graph: cumulative score rising
-   - Debug panel: internal state (valid next actions, etc.)
-6. Final score displayed in Analytics → Task Comparison
-7. Click "Multi-Task Runner" → Runs easy+medium+hard automatically
-8. Analytics tab shows comparative bar chart
-```
-
----
-
-## 🧠 Explainable AI
-
-The **XAI Panel** (right sidebar) shows:
-- **Action Taken**: The specific action the agent chose
-- **Why This Action?**: The agent's reasoning string
-- **Outcome**: The environment's response
-- **Step Reward**: Exact reward for this step
-
-This makes the agent's decision-making fully transparent to judges and users.
-
----
-
-## 🔮 Bonus Features Implemented
-
-- ✅ **Memory-based reasoning** — Conversation history passed back to LLM
-- ✅ **Auto-optimization** — Deterministic fallback uses optimal action sequences
-- ✅ **Deterministic graders** — Reproducible scoring regardless of LLM variation
-- ✅ **Debug mode** — Full internal state visible via toggle button
-
----
-
-*Built for hackathon judges who love both clean code AND beautiful UIs.* 🏆
-#   A s s i s t I Q - A I - C u s t o m e r - S u p p o r t - S i m u l a t o r 
- 
- 
+*Built for the OpenEnv Hackathon.*

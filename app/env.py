@@ -135,14 +135,14 @@ class CustomerSupportEnv:
 
         # 1. Hallucination check — action not in valid global actions
         if action not in VALID_ACTIONS:
-            penalty = -0.5
+            penalty = -0.2
             self.reward_breakdown["hallucination_penalty"] += penalty
             self._hallucinations += 1
             return penalty, f"Hallucinated action '{action}'. Penalty: {penalty}"
 
         # 2. Redundancy check — action taken again unnecessarily
         if action in self.actions_taken and action not in ["request_more_info", "send_confirmation"]:
-            penalty = -0.2
+            penalty = -0.1
             self.reward_breakdown["redundancy_penalty"] += penalty
             self._redundant_actions += 1
             info_parts.append(f"Redundant action. Penalty: {penalty}")
@@ -151,45 +151,41 @@ class CustomerSupportEnv:
         # 3. Correctness — is this action in the expected sequence?
         expected = self.task["expected_actions"]
         next_expected_idx = len(self._correct_actions_hit)
+        
         if next_expected_idx < len(expected) and action == expected[next_expected_idx]:
-            correctness_reward = 0.4
+            # It's the exact correct next action
+            if action in ["classify_ticket", "lookup_customer", "query_knowledge_base", "generate_response"]:
+                correctness_reward = 0.3
+            elif action in ["escalate_to_l2", "escalate_to_l3", "close_ticket", "confirm_resolution"]:
+                correctness_reward = 0.2
+            else:
+                correctness_reward = 0.2  # Backup
+
             self.reward_breakdown["correctness"] += correctness_reward
             self._correct_actions_hit.append(action)
             reward += correctness_reward
             info_parts.append(f"Correct action (+{correctness_reward})")
-        elif action in expected:
-            # Correct action, wrong order
-            partial = 0.1
-            self.reward_breakdown["correctness"] += partial
-            reward += partial
-            info_parts.append(f"Out-of-order correct action (+{partial})")
         else:
-            # Suboptimal but not hallucinated
-            reward += 0.0
-            info_parts.append("Valid but suboptimal action (0.0)")
+            # Wrong action or out of sequence action
+            if action in expected:
+                # Correct action, but wrong order
+                partial_penalty = -0.1
+                self.reward_breakdown["correctness"] += partial_penalty
+                reward += partial_penalty
+                info_parts.append(f"Out-of-order action ({partial_penalty})")
+            else:
+                # Completely wrong action for this task
+                wrong_penalty = -0.2
+                self.reward_breakdown["correctness"] += wrong_penalty
+                reward += wrong_penalty
+                info_parts.append(f"Wrong action ({wrong_penalty})")
 
-        # 4. Escalation check for hard task
-        if self.task["escalation_required"] and action in ["escalate_to_l2", "escalate_to_l3"]:
-            if not self._escalation_done:
-                escalation_reward = 0.3
-                self.reward_breakdown["correctness"] += escalation_reward
-                reward += escalation_reward
-                self._escalation_done = True
-                info_parts.append(f"Required escalation done (+{escalation_reward})")
-
-        # 5. Response quality — has reasoning been provided?
-        if reasoning and len(reasoning) > 20:
+        # 4. Response quality — has reasoning been provided?
+        if reasoning and len(reasoning) > 10:
             quality_reward = 0.1
             self.reward_breakdown["response_quality"] += quality_reward
             reward += quality_reward
             info_parts.append(f"Reasoning provided (+{quality_reward})")
-
-        # 6. Efficiency — penalize if too many steps taken
-        if self.step_count > self.task["max_steps"] * 0.8:
-            slowness_penalty = -0.05
-            self.reward_breakdown["efficiency"] += slowness_penalty
-            reward += slowness_penalty
-            info_parts.append(f"Efficiency warning ({slowness_penalty})")
 
         return round(reward, 3), " | ".join(info_parts) if info_parts else "Action processed."
 
@@ -197,11 +193,15 @@ class CustomerSupportEnv:
         """Bonus for completing the task."""
         if not self.task:
             return 0.0
-        correct_ratio = len(self._correct_actions_hit) / max(len(self.task["expected_actions"]), 1)
-        step_efficiency = max(0, 1.0 - self.step_count / self.task["max_steps"])
-        bonus = round(correct_ratio * 1.0 + step_efficiency * 0.5, 3)
-        self.reward_breakdown["efficiency"] += step_efficiency * 0.5
-        return bonus
+        
+        bonus = 0.0
+        # Efficiency bonus: up to +0.2 based on how few steps were used.
+        if self.step_count <= self.task["max_steps"]:
+            step_efficiency = min(0.2, max(0, 0.2 * (1.0 - (self.step_count / self.task["max_steps"]))))
+            bonus += step_efficiency
+            self.reward_breakdown["efficiency"] += step_efficiency
+            
+        return round(bonus, 3)
 
     # ------------------------------------------------------------------
     # Helpers
@@ -224,26 +224,14 @@ class CustomerSupportEnv:
         """Simulate the environment's response to an action."""
         ticket = self.task["ticket"]
         responses = {
-            "classify_ticket": f"✅ Ticket {ticket['id']} classified as [{ticket['category']}] | Priority: {ticket['priority']}.",
+            "classify_ticket": f"✅ Ticket {ticket['id']} classified. Category routing engaged.",
             "lookup_customer": f"✅ Customer found: {ticket['customer_name']} | Tier: {ticket['customer_tier']} | Account age: {ticket['account_age_days']} days.",
-            "verify_identity": "✅ Identity verified via last 4 digits of phone number.",
-            "send_password_reset": "✅ Password reset email sent to customer's verified email address.",
-            "query_billing_records": "✅ Billing records retrieved. Found 2 charges of $99.99 on 2024-03-15 at 14:02 and 14:03.",
-            "verify_duplicate_charge": "✅ Payment gateway confirmed: duplicate transaction ID TX-99812 charged twice.",
-            "initiate_refund": "✅ Refund of $99.99 initiated. Expected in 3-5 business days. Ref: REF-112233.",
-            "send_confirmation": "✅ Confirmation email sent with resolution details and reference number.",
-            "check_system_status": "⚠️ Status Page: API Gateway (us-east-1) — DEGRADED. Error rate: 100%. Started: 23 min ago.",
-            "acknowledge_outage": "✅ Acknowledgement sent to customer. SLA timer started.",
-            "escalate_to_l2": "✅ Ticket escalated to L2 support. ETA: 10 minutes.",
-            "escalate_to_l3": "✅ P0 incident created. L3 Engineering on-call paged. War room link shared.",
-            "query_logs": "✅ Logs retrieved: 502 errors originating from misconfigured upstream timeout (30s → 0s after last deploy).",
-            "identify_root_cause": "✅ Root cause identified: Deployment commit #a3f9c2 set upstream_timeout=0. Rolled back config identified.",
-            "apply_hotfix": "✅ Hotfix deployed: upstream_timeout reset to 30s. API Gateway health: HEALTHY. Error rate: 0%.",
-            "verify_resolution": "✅ Customer confirmed services are fully restored.",
-            "send_incident_report": "✅ Post-incident report sent. SLA credit of $7,200 applied to account.",
-            "confirm_resolution": f"✅ Ticket {ticket['id']} marked as RESOLVED. CSAT survey sent.",
-            "request_more_info": "📋 Additional information request sent to customer. Awaiting reply.",
-            "close_ticket": f"⚠️ Ticket {ticket['id']} closed without full resolution confirmation.",
+            "query_knowledge_base": "✅ Knowledge base synced. Matching policies found.",
+            "generate_response": "✅ Support response drafted and sent successfully.",
+            "escalate_to_l2": "✅ Ticket prioritized and escalated to L2 human team. Manager notified.",
+            "escalate_to_l3": "✅ Emergency incident created. L3 Engineering on-call paged.",
+            "confirm_resolution": f"✅ Ticket {ticket['id']} marked as RESOLVED. CSAT survey dispatched.",
+            "close_ticket": f"⚠️ Ticket {ticket['id']} closed forcefully.",
         }
         return responses.get(action, f"✅ Action '{action}' executed successfully.")
 
