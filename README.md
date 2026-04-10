@@ -61,19 +61,24 @@ graph TD
 
 ## 💻 Running the Simulator
 
-Ensure you have Python 3.9+ and `uv` installed.
+Ensure you have Python 3.9+ installed.
 
-### 1. Launch the Server
+### 1. Install Dependencies
 ```bash
-uv run fastapi dev server/app.py --port 7860
+pip install -r requirements.txt
+```
+
+### 2. Launch the Server
+```bash
+python -m uvicorn app.main:app --host 127.0.0.1 --port 7860
 # or if using Docker:
 docker build -t assistiq . && docker run -p 7860:7860 assistiq
 ```
 
-### 2. View the Premium Dashboard
+### 3. View the Premium Dashboard
 Open your browser to `http://localhost:7860`. You will see the beautiful command center.
 
-### 3. Run the Inference Agent
+### 4. Run the Inference Agent
 In a separate terminal, launch the agent to watch it solve the tasks in real-time.
 ```bash
 python inference.py
